@@ -1,6 +1,13 @@
 import { ethers } from 'ethers'
 
 import { ETHEREUM_OBJECT_NOT_FOUND } from '@/config/commons'
+import {
+	chainTicTacAvaxAddress,
+	chainTicTacAvaxCrossAddress
+} from '@/enums/chain-contracts-addresses.enum'
+import { chainNames } from '@/enums/chain-names.enum'
+import { chainValues } from '@/enums/chain-values.enum'
+import { chains } from '@/enums/chains.enum'
 
 export function getRpcUrls(): {
 	rpcArbitrumSepolia: string
@@ -68,4 +75,65 @@ export function timestampToFormatedDate(timestamp: bigint): string {
 
 	console.log(formattedDate)
 	return formattedDate
+}
+
+export const getChainEnum = (
+	chainId: number | undefined
+): chains | undefined => {
+	switch (chainId) {
+		case 43113:
+			return chains.AVALANCHE_FUJI
+		case 44787:
+			return chains.CELO_ALFAJORES
+		default:
+			return undefined
+	}
+}
+
+export function getChainValue(chainEnum: chains): number {
+	switch (chainEnum) {
+		case chains.AVALANCHE_FUJI:
+			return chainValues.AVALANCHE_FUJI
+		case chains.CELO_ALFAJORES:
+			return chainValues.CELO_ALFAJORES
+		default:
+			return Number(chainValues.DEFAULT)
+	}
+}
+
+export function getDestinationChain(chainName: chainNames): chainNames {
+	switch (chainName) {
+		case chainNames.AVALANCHE_FUJI:
+			return chainNames.AVALANCHE_FUJI
+		case chainNames.CELO_ALFAJORES:
+			return chainNames.CELO_ALFAJORES
+		default:
+			return chainNames.DEFAULT
+	}
+}
+
+export function getDestinationTicTacAvaxAddress(
+	ticTacAvaxAddress: chainTicTacAvaxAddress
+): string | undefined {
+	switch (ticTacAvaxAddress) {
+		case chainTicTacAvaxAddress.AVALANCHE_FUJI:
+			return chainTicTacAvaxAddress.AVALANCHE_FUJI
+		case chainTicTacAvaxAddress.CELO_ALFAJORES:
+			return chainTicTacAvaxAddress.CELO_ALFAJORES
+		default:
+			return chainTicTacAvaxAddress.DEFAULT
+	}
+}
+
+export function getDestinationTicTacAvaxCrossAddress(
+	ticTacAvaxCrossAddress: chainTicTacAvaxCrossAddress
+): string | undefined {
+	switch (ticTacAvaxCrossAddress) {
+		case chainTicTacAvaxCrossAddress.AVALANCHE_FUJI:
+			return chainTicTacAvaxCrossAddress.AVALANCHE_FUJI
+		case chainTicTacAvaxCrossAddress.CELO_ALFAJORES:
+			return chainTicTacAvaxCrossAddress.CELO_ALFAJORES
+		default:
+			return chainTicTacAvaxCrossAddress.DEFAULT
+	}
 }

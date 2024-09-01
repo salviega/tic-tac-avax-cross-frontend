@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react'
-import { ZeroAddress } from 'ethers'
-import toast from 'react-hot-toast'
+import { AddressLike, ZeroAddress } from 'ethers'
 import { useAccount } from 'wagmi'
 
 // import BackgroundAudio from '@/components/BackGroundSound';
 import FormPlayers from '@/components/FormPlayers'
 import NotAccount from '@/components/shared/NotAccount'
 import CyberpunkBentoTicTacToe from '@/components/TicTacToe'
-import { GAS_LIMIT } from '@/config/commons'
+import { chainTicTacAvaxCrossAddress } from '@/enums/chain-contracts-addresses.enum'
+import { chainNames } from '@/enums/chain-names.enum'
 import { chains } from '@/enums/chains.enum'
 import {
 	convertBoardToSerializable,
-	getFrontendSigner,
+	getChainEnum,
+	getChainValue,
+	getDestinationChain,
+	getDestinationTicTacAvaxCrossAddress,
 	timestampToFormatedDate
 } from '@/helpers'
 import { getContracts } from '@/helpers/contracts'
@@ -19,11 +22,10 @@ import { getContracts } from '@/helpers/contracts'
 import Loading from '../../components/shared/Loading/index'
 
 export default function Home(): JSX.Element {
-	const [currentPlayer, setCurrentPlayer] = useState<string>(ZeroAddress)
+	const [chainValue, setChainValue] = useState<number>(0)
 	const [gameCount, setGameCount] = useState<number>(0)
 	const [isGameOver, setIsGameOver] = useState<boolean>(false)
 	const [isLoading, setIsLoading] = useState<boolean>(true)
-	const [isLoadingBoard, setIsLoadingBoard] = useState<boolean>(false)
 	const [isStartGame, setIsStartGame] = useState<boolean>(false)
 	const [lastMoveTimestamp, setLastMoveTimestamp] = useState<string>('')
 	const [lastWinner, setLastWinner] = useState<string>(ZeroAddress)
@@ -31,17 +33,62 @@ export default function Home(): JSX.Element {
 	const [playerTwo, setPlayerOne] = useState<string>(ZeroAddress)
 	const [roundCount, setRoundCount] = useState<number>(0)
 	const [winner, setWinner] = useState<string>(ZeroAddress)
-	const { address, isConnected } = useAccount()
-
-	const [currentPositionPlayer, setCurrentPositionPlayer] = useState<number>(0)
-
-	const { ticTacAvax } = getContracts(chains.AVALANCHE_FUJI)
 
 	const [board, setBoard] = useState<number[][]>([
 		[0, 0, 0],
 		[0, 0, 0],
 		[0, 0, 0]
 	])
+
+	const [connectedCurrentPositionPlayer, setConnectedCurrentPositionPlayer] =
+		useState<number>(0)
+
+	const [otherChainCurrentPositionPlayer, setOtherChainCurrentPositionPlayer] =
+		useState<number>(0)
+
+	const [destinationChain, setDestinationChain] = useState<
+		chainNames | undefined
+	>(undefined)
+
+	const [destinationAddress, setDestinationAddress] = useState<
+		string | undefined
+	>(undefined)
+
+	const { address, isConnected, chainId } = useAccount()
+
+	if (chainId === undefined) {
+		return <Loading />
+	}
+
+	const chainEnum: chains | undefined = getChainEnum(chainId)
+
+	const { ticTacAvaxCross: connectedTicTacAvax } = getContracts(
+		chainEnum as chains
+	)
+
+	const { ticTacAvaxCross: otherChainTicTacAvax } = getContracts(
+		(chainEnum as chains) === chains.CELO_ALFAJORES
+			? chains.AVALANCHE_FUJI
+			: chains.CELO_ALFAJORES
+	)
+
+	// eslint-disable-next-line react-hooks/rules-of-hooks
+	useEffect(() => {
+		if (address) {
+			fetchData()
+		}
+	}, [address])
+
+	const startGame = () => {
+		setIsStartGame(true)
+	}
+	const resetBoard = () => {
+		setBoard([
+			[0, 0, 0],
+			[0, 0, 0],
+			[0, 0, 0]
+		])
+	}
 
 	const fetchData = async () => {
 		// get game status
@@ -74,36 +121,140 @@ export default function Home(): JSX.Element {
 		// get last winner
 		setLastWinner(await ticTacAvax.lastRoundWinner())
 
-		// get game count
-		setGameCount(Number(await ticTacAvax.gameCount()))
+		setOtherChainCurrentPositionPlayer(
+			Number(currentOtherChainCurrentPositionPlayer)
+		)
+
+		const currentConnectedBoard: [
+			[bigint, bigint, bigint],
+			[bigint, bigint, bigint],
+			[bigint, bigint, bigint]
+		] = await connectedTicTacAvax.getBoard()
+
+		setBoard(convertBoardToSerializable(currentConnectedBoard))
+
+		const currentRoundCount: bigint = await connectedTicTacAvax.roundCount()
+		setRoundCount(Number(currentRoundCount))
+
+		const currentLastMoveTimestamp: bigint =
+			await connectedTicTacAvax.lastMoveTimestamp()
+
+		const formatedCurrentLastMoveTimestamp: string = timestampToFormatedDate(
+			currentLastMoveTimestamp
+		)
+
+		setLastMoveTimestamp(formatedCurrentLastMoveTimestamp)
+
+		const currentWinner: string = await connectedTicTacAvax.winner()
+		setWinner(currentWinner)
+
+		const currentLastWinner: string =
+			await connectedTicTacAvax.lastRoundWinner()
+
+		setLastWinner(currentLastWinner)
+
+		const currentGameCount: bigint = await connectedTicTacAvax.gameCount()
+		setGameCount(Number(currentGameCount))
+
+		const destinationChainEnum =
+			(chainEnum as chains) === chains.CELO_ALFAJORES
+				? chains.AVALANCHE_FUJI
+				: chains.CELO_ALFAJORES
+
+		const destinationChainName = getDestinationChain(
+			destinationChainEnum === chains.CELO_ALFAJORES
+				? chainNames.AVALANCHE_FUJI
+				: chainNames.CELO_ALFAJORES
+		)
+
+		setDestinationChain(destinationChainName)
+
+		// const destinationTicTacAvaxAddress = getDestinationTicTacAvaxAddress(
+		// 	(chainEnum as chains) === chains.CELO_ALFAJORES
+		// 		? chainTicTacAvaxAddress.AVALANCHE_FUJI
+		// 		: chainTicTacAvaxAddress.CELO_ALFAJORES
+		// )
+
+		const destinationTicTacAvaxAddress = getDestinationTicTacAvaxCrossAddress(
+			(chainEnum as chains) === chains.CELO_ALFAJORES
+				? chainTicTacAvaxCrossAddress.AVALANCHE_FUJI
+				: chainTicTacAvaxCrossAddress.CELO_ALFAJORES
+		)
+
+		setDestinationAddress(destinationTicTacAvaxAddress)
+
+		const chainValue: number = getChainValue(
+			(chainEnum as chains) === chains.CELO_ALFAJORES
+				? chains.AVALANCHE_FUJI
+				: chains.CELO_ALFAJORES
+		)
+
+		setChainValue(chainValue)
 
 		setIsLoading(false)
 	}
 
-	// eslint-disable-next-line react-hooks/rules-of-hooks
-	useEffect(() => {
-		if (address) {
-			fetchData()
-		}
-	}, [address])
-
-	const onStartGame = async (playerOne: string, playerTwo: string) => {
+	const onStartGame = async () => {
 		try {
 			setIsLoading(true)
 
-			const web3Signer = await getFrontendSigner()
+			const startGameTx = await connectedTicTacAvax.startGame(
+				destinationChain as string,
+				destinationAddress as string,
+				address as AddressLike,
+				playerTwo as AddressLike,
+				{
+					value: chainValue
+				}
+			)
 
-			const startGameTx = await ticTacAvax
-				.connect(web3Signer)
-				.startGame(playerOne, playerTwo, {
-					gasLimit: GAS_LIMIT
-				})
 			await startGameTx.wait()
 		} catch (error) {
 			console.error(error)
 			// TODO: toast error
 		} finally {
-			fetchData()
+			await fetchData()
+		}
+	}
+
+	const onMakeMove = async (row: number, column: number) => {
+		try {
+			setIsLoading(true)
+
+			const makeMoveTx = await connectedTicTacAvax.makeMove(
+				destinationChain as string,
+				destinationAddress as string,
+				row,
+				column,
+				{
+					value: chainValue
+				}
+			)
+
+			await makeMoveTx.wait()
+		} catch (error) {
+			console.error(error)
+			// TODO: toast error
+		} finally {
+			await fetchData()
+		}
+	}
+
+	const resetGame = async () => {
+		try {
+			setIsLoading(true)
+
+			const resetGameTx = await connectedTicTacAvax.resetGame(
+				destinationChain as string,
+				destinationAddress as string
+			)
+
+			await resetGameTx.wait()
+		} catch (error) {
+			console.error(error)
+			// TODO: toast error
+		} finally {
+			await fetchData()
 		}
 	}
 
